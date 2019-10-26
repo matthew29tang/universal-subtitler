@@ -12,20 +12,21 @@ var download = (url) => {
     response.pipe(file);
   });
 
-  file.on('finish', () => {
-    ffmpeg('./raw.mp4').toFormat('flac').on('error', (err) => {
-      console.log('An error occurred: ' + err.message);
-    }).on('progress', (progress) => {
-      // console.log(JSON.stringify(progress));
-      console.log('Processing: ' + progress.targetSize + ' KB converted');
-    }).on('end', () => {
-      console.log('Processing finished !');
-      splitAudio(outfile)
-    }).save(outfile)
-  });
+  file.on('finish', () => split("raw.mp4"));
 }
 
-var splitAudio = (outfile) => {
+var convert = (input) => {
+  ffmpeg(input).toFormat('flac').on('error', (err) => {
+    console.log('An error occurred: ' + err.message);
+  }).on('progress', (progress) => {
+    console.log('Processing: ' + progress.targetSize + ' KB converted');
+  }).on('end', () => {
+    console.log('Conversion finished!');
+  }).save(input.slice(0, -3) + "flac")
+}
+
+
+var split = (outfile) => {
   ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
     var sampleRate = null;
     var duration = null;
@@ -39,8 +40,14 @@ var splitAudio = (outfile) => {
     console.log("Duration: ", duration);
     numSplits = Math.floor(duration / splitLen) + 1;
     console.log("Num splits", numSplits);
-    for (var i = 0; i <= numSplits; i++) {
-      ffmpeg(outfile).seekInput(splitLen * i).duration(splitLen).save(`split${i}.flac`);
+    for (var i = 0; i < numSplits; i++) {
+      splitter = (i) => {
+        ffmpeg(outfile).seekInput(splitLen * i).duration(splitLen).on('end', () => {
+          console.log("Splitted", i);
+          convert(`split${i}.mp4`);
+        }).save(`split${i}.mp4`);
+      }
+      splitter(i);
     }
     console.log("Split finished")
   });
