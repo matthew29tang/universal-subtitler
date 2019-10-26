@@ -10,6 +10,10 @@ chrome.runtime.onMessage.addListener(
     if( request.message === "open_new_tab" ) {
       chrome.tabs.create({"url": request.url});
     }
+    if ( request.action === "getSource" ) {
+      console.log(request.source);
+      chrome.tabs.create({"url": request.source});
+    }
   }
 );
 
