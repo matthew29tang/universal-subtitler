@@ -1,0 +1,16 @@
+{
+  "name": "subgen-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension component of subtitle generator project",
+  "private": "true",
+  "dependencies": {},
+  "devDependencies": {
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.9"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
