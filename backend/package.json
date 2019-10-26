@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/matthew29tang/subgen#readme",
   "dependencies": {
+    "fluent-ffmpeg": "^2.1.2",
     "mux.js": "^5.5.1",
     "video-dl": "^4.0.13"
   }
