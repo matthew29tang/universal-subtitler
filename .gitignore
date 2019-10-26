@@ -113,5 +113,10 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+# Ignore .DS_Store
+.DS_Store
+
+# Gcloud credentials
+/backend/subgen-credentials.json
 
 # End of https://www.gitignore.io/api/vim,node

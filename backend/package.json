@@ -22,7 +22,10 @@
   },
   "homepage": "https://github.com/matthew29tang/subgen#readme",
   "dependencies": {
+    "@google-cloud/speech": "^3.3.2",
+    "@google-cloud/translate": "^4.2.1",
+    "cors": "^2.8.5",
     "mux.js": "^5.5.1",
-    "video-dl": "^4.0.13"
+    "fluent-ffmpeg": "^2.1.2"
   }
 }
