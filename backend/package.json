@@ -1,0 +1,23 @@
+{
+  "name": "subgen",
+  "version": "1.0.0",
+  "description": "Generates subtitles for videos",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matthew29tang/subgen.git"
+  },
+  "keywords": [
+    "generate",
+    "subtitles"
+  ],
+  "author": "Christianna Xu, Matthew Tang, Robert Quitt, Emma Yokota",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/matthew29tang/subgen/issues"
+  },
+  "homepage": "https://github.com/matthew29tang/subgen#readme"
+}
