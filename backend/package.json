@@ -4,7 +4,8 @@
   "description": "Generates subtitles for videos",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -21,6 +22,7 @@
   },
   "homepage": "https://github.com/matthew29tang/subgen#readme",
   "dependencies": {
-    "mux.js": "^5.5.1"
+    "mux.js": "^5.5.1",
+    "video-dl": "^4.0.13"
   }
 }
