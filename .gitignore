@@ -114,4 +114,7 @@ tags
 # Persistent undo
 [._]*.un~
 
+# Gcloud credentials
+/backend/subgen-credentials.json
+
 # End of https://www.gitignore.io/api/vim,node
