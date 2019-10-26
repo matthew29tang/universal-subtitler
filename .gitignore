@@ -113,5 +113,7 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+# Ignore .DS_Store
+.DS_Store
 
 # End of https://www.gitignore.io/api/vim,node
