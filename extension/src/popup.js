@@ -143,15 +143,25 @@ $(document).ready(function () {
     });
   });
   $("body").on("click", ".translate-button", function (e) {
+    $(this).prop('disabled', true);
+    var parent = document.getElementById("video-list");
+    var para = document.createElement("P");
+    para.innerText = "Loading..."
+    parent.appendChild(para);
     console.log("translate button clicked");
     e.preventDefault();
     //var subtitles = TEST_SUBS;
     var finalurl = `${baseURL}\?native=${nativeLang}&target=${targetLang}&url=${url}`
+    chrome.extension.getBackgroundPage().console.log("Fetching...");
     fetch(finalurl).then((response) => {
       response.json().then((resp) => {
         chrome.extension.getBackgroundPage().console.log(resp);
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-          chrome.tabs.sendMessage(tabs[0].id, {message: "send_subtitles", subtitles: resp});
+          chrome.tabs.sendMessage(tabs[0].id, { message: "send_subtitles", subtitles: resp });
+        });
+      }).catch((err) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          chrome.tabs.sendMessage(tabs[0].id, { message: "failure" });
         });
       });
     });

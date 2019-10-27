@@ -23,6 +23,10 @@ chrome.runtime.onMessage.addListener(
         ttTranslated.addCue(new VTTCue(subtitle.start, subtitle.end, subtitle.text));
       });
       ttTranslated.mode = "showing";
+      alert("Translation complete.");
+    }
+    else if (request.message === "failure") {
+      alert("Translation failure.");
     }
   }
 )
