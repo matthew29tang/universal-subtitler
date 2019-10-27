@@ -1,7 +1,9 @@
 var port = process.env.PORT || 4000;  
 var express = require('express'); 
-const fs = require('fs');
 var cors = require('cors');
+const https = require('https');
+const fs = require('fs');
+const ffmpeg = require('fluent-ffmpeg');
 const speech = require('@google-cloud/speech');
 const { Translate } = require('@google-cloud/translate');
 const translate = new Translate({ projectId: 'subgen' });
@@ -9,7 +11,56 @@ var app = express();
 app.use(cors());
 console.log("Starting up server...");
 
-var syncRecognizeWords = (filename, encoding, sampleRateHertz, languageCode, res) => {
+const splitLen = 30;
+const url = "https://gcs-vimeo.akamaized.net/exp=1572138211~acl=%2A%2F585965178.mp4%2A~hmac=f3dbe3981b8ab8f5a681ff7efee9e844f62ee1de34f747d0d204fb5f4a7f7e85/vimeo-prod-skyfire-std-us/01/908/7/179543978/585965178.mp4";
+
+var download = (url) => {
+  const file = fs.createWriteStream("raw.mp4");
+  const request = https.get(url, function (response) { response.pipe(file) });
+  file.on('finish', () => split("raw.mp4"));
+}
+
+var convert = (input, sampleRate) => {
+  ffmpeg(input).toFormat('flac').on('error', (err) => {
+    console.log('An error occurred: ' + err.message);
+  }).on('progress', (progress) => {
+    console.log('Processing: ' + progress.targetSize + ' KB converted');
+  }).on('end', () => {
+    console.log('Conversion finished!');
+  }).save(input.slice(0, -3) + "flac")
+}
+
+var split = (outfile) => {
+  ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
+    var sampleRate = null;
+    var duration = null;
+    metadata.streams.forEach(function (stream) {
+      if (stream.codec_type === "audio") {
+        sampleRate = stream.sample_rate;
+        duration = stream.duration;
+      }
+    });
+    numSplits = Math.floor(duration / splitLen) + 1;
+    console.log("Sample rate: ", sampleRate);
+    console.log("Duration: ", duration);
+    console.log("Num splits: ", numSplits);
+    for (var i = 0; i < numSplits; i++) {
+      splitter = (i) => {
+        ffmpeg(outfile).seekInput(splitLen * i).duration(splitLen).on('end', () => {
+          console.log("Splitted", i);
+          convert(`split${i}.mp4`, sampleRate);
+        }).save(`split${i}.mp4`);
+      }
+      splitter(i);
+    }
+  });
+}
+
+//download(url)
+
+
+// ---------- < BEGIN GOOGLE CLOUD APIS > --------
+var recognize = (filename, encoding, sampleRateHertz, languageCode, res) => {
   const client = new speech.SpeechClient();
   const config = {
     enableWordTimeOffsets: true,
@@ -25,7 +76,7 @@ var syncRecognizeWords = (filename, encoding, sampleRateHertz, languageCode, res
     config: config,
     audio: audio,
   };
-
+  console.log("Performing recognition...");
   return client.recognize(request).then(raw => transcribe(raw, res));
 }
 
@@ -44,6 +95,7 @@ var transcribe = (raw, res) => {
       })
     });
     var count = 0;
+    result = _condense(result);
     result.forEach(word => {
       translate.translate(word.raw, 'en').then(translated => {
         word.text = translated[0];
@@ -57,12 +109,32 @@ var transcribe = (raw, res) => {
   });
 }
 
+var _condense = (result) => {
+  var array = [];
+  var time = 0;
+  var string = "";
+  result.forEach(word => {
+    if (word.start < time + 5) {
+      string = string + " " + word.raw;
+    } else {
+      array.push({
+        raw: string,
+        start: time,
+        end: time + 5
+      })
+      string = "";
+      time += 5;
+    }
+  })
+  return array;
+}
+
 app.get('/', function (req, res) {
-  const filename = './video2.flac';
+  const filename = './split0.flac';
   const encoding = 'FLAC';
-  const sampleRateHertz = 44100;
-  const languageCode = 'fr';
-  const result = syncRecognizeWords(filename, encoding, sampleRateHertz, languageCode, res);
+  const sampleRateHertz = 48000;
+  const languageCode = 'es';
+  const result = recognize(filename, encoding, sampleRateHertz, languageCode, res);
 });
 
 
