@@ -1,6 +1,8 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
 import { subtitles as TEST_SUBS } from "./testing_data.js";
 var select2 = require('select2');
+var targetLang = 'en';
+var nativeLang = 'en';
 
 var vd = {};
 
@@ -43,11 +45,13 @@ vd.createDownloadSection = function (videoData) {
   var targetList = document.createElement("select");
   nativeList.addEventListener("change", (newValue) => {
     var stored = document.getElementById("nativeIndex");
-    stored.innerHTML = newValue.target.selectedIndex;
+    nativeLang = data[newValue.target.selectedIndex].value
+    stored.innerHTML = nativeLang;
   }); 
   targetList.addEventListener("change", (newValue) => {
     var stored = document.getElementById("targetIndex");
-    stored.innerHTML = newValue.target.selectedIndex;
+    targetLang = data[newValue.target.selectedIndex].value
+    stored.innerHTML = targetLang;
   });
   parent.appendChild(nativeList);
   parent.appendChild(targetList);
@@ -65,7 +69,7 @@ vd.createDownloadSection = function (videoData) {
     option.text = data[i].text;
     targetList.appendChild(option);
   }
-  return (
+  /*return (
     '<li class="video"> \
         <a class="play-button" href="' +
     videoData.url +
@@ -86,11 +90,12 @@ vd.createDownloadSection = function (videoData) {
     Math.floor((videoData.size * 100) / 1024 / 1024) / 100 +
     ' MB</a>\
         <div class="sep"></div>\
-        </li>';
+        </li>');
 
   // TODO: have a bunch of buttons -- their onclick events would make API call
   // which would retrieve subtitles and then inject them into the video
   // element.
+  */
   var listItem = document.createElement("li");
   var element = document.createElement("button");
   element.classList.add("translate-button");
