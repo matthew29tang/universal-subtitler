@@ -1,7 +1,31 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
 import { subtitles as TEST_SUBS } from "./testing_data.js";
+var select2 = require('select2');
 
 var vd = {};
+
+var data = [
+  {
+      id: 0,
+      text: 'enhancement'
+  },
+  {
+      id: 1,
+      text: 'bug'
+  },
+  {
+      id: 2,
+      text: 'duplicate'
+  },
+  {
+      id: 3,
+      text: 'invalid'
+  },
+  {
+      id: 4,
+      text: 'wontfix'
+  }
+];
 
 // Sends message from extension to content script
 vd.sendMessage = function(message, callback) {
@@ -18,6 +42,12 @@ vd.createDownloadSection = function(videoData) {
         <div class="title" title="' +
     videoData.fileName +
     '">' +
+    '<select class="js-example-basic-single js-states form-control" id="id_label_single"> \
+      <optgroup label="Group Name"> \
+        <option>Nested option</option> \
+      </optgroup> \
+    </select>'
+     +
     videoData.fileName +
     '</div> \
         <a class="download-button" href="' +
@@ -66,9 +96,15 @@ $(document).ready(function() {
       }
       $("#no-video-found").css("display", "none");
       videoList.css("display", "block");
-      videoLinks.forEach(function(videoLink) {
-        videoList.append(vd.createDownloadSection(videoLink));
+      var smallest = null
+      var smallestSize = Math.min()
+      videoLinks.forEach(video => {
+        if (Number(video.size) < smallestSize) {
+          smallest = video;
+          smallestSize = Number(video.size);
+        }
       });
+      videoList.append(vd.createDownloadSection(smallest));
     });
   });
   $("body").on("click", ".translate-button", function(e) {
