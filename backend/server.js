@@ -95,6 +95,7 @@ var transcribe = (raw, res) => {
       })
     });
     var count = 0;
+    result = _condense(result);
     result.forEach(word => {
       translate.translate(word.raw, 'en').then(translated => {
         word.text = translated[0];
@@ -106,6 +107,26 @@ var transcribe = (raw, res) => {
       });
     });
   });
+}
+
+var _condense = (result) => {
+  var array = [];
+  var time = 0;
+  var string = "";
+  result.forEach(word => {
+    if (word.start < time + 5) {
+      string = string + " " + word.raw;
+    } else {
+      array.push({
+        raw: string,
+        start: time,
+        end: time + 5
+      })
+      string = "";
+      time += 5;
+    }
+  })
+  return array;
 }
 
 app.get('/', function (req, res) {
