@@ -1,13 +1,16 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
+import { subtitles as TEST_SUBS } from "./testing_data.js";
 
 var vd = {};
 
+// Sends message from extension to content script
 vd.sendMessage = function(message, callback) {
   chrome.runtime.sendMessage(message, callback);
 };
 
 vd.createDownloadSection = function(videoData) {
-  return (
+  // The old code used to create the download buttons
+  oldElem = (
     '<li class="video"> \
         <a class="play-button" href="' +
     videoData.url +
@@ -29,10 +32,18 @@ vd.createDownloadSection = function(videoData) {
     ' MB</a>\
         <div class="sep"></div>\
         </li>'
+
   );
+
   // TODO: have a bunch of buttons -- their onclick events would make API call
   // which would retrieve subtitles and then inject them into the video
   // element.
+
+  var onclick = function(){
+    /* TODO: MAKE API CALL */
+    subtitles = TEST_SUBS;
+    vd.sendMessage({message: "send_subtitles", subtitles: TEST_SUBS});
+  };
 };
 
 $(document).ready(function() {
