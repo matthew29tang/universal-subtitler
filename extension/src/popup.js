@@ -6,50 +6,76 @@ var vd = {};
 
 var data = [
   {
-      id: 0,
-      text: 'enhancement'
+    id: 0,
+    text: 'English',
+    value: 'en'
   },
   {
-      id: 1,
-      text: 'bug'
+    id: 1,
+    text: 'Japanese',
+    value: 'ja'
   },
   {
-      id: 2,
-      text: 'duplicate'
+    id: 2,
+    text: 'Spanish',
+    value: 'es'
   },
   {
-      id: 3,
-      text: 'invalid'
+    id: 3,
+    text: 'French',
+    value: 'fr'
   },
   {
-      id: 4,
-      text: 'wontfix'
+    id: 4,
+    text: 'German',
+    value: 'de'
   }
 ];
 
 // Sends message from extension to content script
-vd.sendMessage = function(message, callback) {
+vd.sendMessage = function (message, callback) {
   chrome.runtime.sendMessage(message, callback);
 };
 
-vd.createDownloadSection = function(videoData) {
-  // The old code used to create the download buttons
-  $('.js-example-basic-single').select2({data: data});
+vd.createDownloadSection = function (videoData) {
+  var parent = document.getElementById("video-list");
+  var nativeList = document.createElement("select");
+  var targetList = document.createElement("select");
+  nativeList.addEventListener("change", (newValue) => {
+    var stored = document.getElementById("nativeIndex");
+    stored.innerHTML = newValue.target.selectedIndex;
+  }); 
+  targetList.addEventListener("change", (newValue) => {
+    var stored = document.getElementById("targetIndex");
+    stored.innerHTML = newValue.target.selectedIndex;
+  });
+  parent.appendChild(nativeList);
+  parent.appendChild(targetList);
+
+  //Create and append the options
+  for (var i = 0; i < data.length; i++) {
+    var option = document.createElement("option");
+    option.value = data[i].value;
+    option.text = data[i].text;
+    nativeList.appendChild(option);
+  }
+  for (var i = 0; i < data.length; i++) {
+    var option = document.createElement("option");
+    option.value = data[i].value;
+    option.text = data[i].text;
+    targetList.appendChild(option);
+  }
   return (
     '<li class="video"> \
         <a class="play-button" href="' +
     videoData.url +
     '" target="_blank"></a> \
-        <div class="title" title="' +
-    videoData.fileName +
-    '">' +
-    '<select class="js-example-basic-single js-states form-control" id="id_label_single"> \
-      <optgroup label="Group Name"> \
-        <option>Nested option</option> \
-      </optgroup> \
-    </select>'
-     +
-    videoData.fileName +
+        <div class="title" title="' + videoData.fileName + '">'
+    +
+    '<div id="nativeIndex">' + nativeList.selectedIndex + '</div>'
+    +
+    '<div id="targetIndex">' + targetList.selectedIndex + '</div>'
+    +
     '</div> \
         <a class="download-button" href="' +
     videoData.url +
@@ -68,18 +94,18 @@ vd.createDownloadSection = function(videoData) {
   // which would retrieve subtitles and then inject them into the video
   // element.
 
-  var onclick = function(){
+  var onclick = function () {
     /* TODO: MAKE API CALL */
     subtitles = TEST_SUBS;
-    vd.sendMessage({message: "send_subtitles", subtitles: TEST_SUBS});
+    vd.sendMessage({ message: "send_subtitles", subtitles: TEST_SUBS });
   };
 };
 
-$(document).ready(function() {
+$(document).ready(function () {
   var videoList = $("#video-list");
-  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     console.log(tabs);
-    vd.sendMessage({ message: "get-video-links", tabId: tabs[0].id }, function(
+    vd.sendMessage({ message: "get-video-links", tabId: tabs[0].id }, function (
       tabsData
     ) {
       console.log(tabsData);
@@ -107,7 +133,7 @@ $(document).ready(function() {
       videoList.append(vd.createDownloadSection(smallest));
     });
   });
-  $("body").on("click", ".download-button", function(e) {
+  $("body").on("click", ".download-button", function (e) {
     e.preventDefault();
     vd.sendMessage({
       message: "download-video-link",

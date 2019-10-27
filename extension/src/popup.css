@@ -1,6 +1,6 @@
 
 body {
-    width: 380px;
+    width: 400px;
     color: #555;
     font-family: Verdana, Geneva, sans-serif;
 }
@@ -35,7 +35,7 @@ body {
     display: inline-block;
     font-size: 14px;
     cursor: default;
-    width: 200px;
+    width: 250px;
     float: left;
     font-weight: normal;
     color: #5d5d5d;
