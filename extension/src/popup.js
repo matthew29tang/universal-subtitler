@@ -1,54 +1,88 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
 import { subtitles as TEST_SUBS } from "./testing_data.js";
 var select2 = require('select2');
+var targetLang = 'en';
+var nativeLang = 'en';
+var url = null;
+const baseURL = 'https://subgen.localtunnel.me';
 
 var vd = {};
 
 var data = [
   {
-      id: 0,
-      text: 'enhancement'
+    id: 0,
+    text: 'English',
+    value: 'en'
   },
   {
-      id: 1,
-      text: 'bug'
+    id: 1,
+    text: 'Japanese',
+    value: 'ja'
   },
   {
-      id: 2,
-      text: 'duplicate'
+    id: 2,
+    text: 'Spanish',
+    value: 'es'
   },
   {
-      id: 3,
-      text: 'invalid'
+    id: 3,
+    text: 'French',
+    value: 'fr'
   },
   {
-      id: 4,
-      text: 'wontfix'
+    id: 4,
+    text: 'German',
+    value: 'de'
   }
 ];
 
 // Sends message from extension to content script
-vd.sendMessage = function(message, callback) {
+vd.sendMessage = function (message, callback) {
   chrome.runtime.sendMessage(message, callback);
 };
 
-vd.createDownloadSection = function(videoData) {
-  // The old code used to create the download buttons
-  var oldElem =
+vd.createDownloadSection = function (videoData) {
+  url = encodeURIComponent(videoData.url);
+  var parent = document.getElementById("video-list");
+  var nativeList = document.createElement("select");
+  var targetList = document.createElement("select");
+  nativeList.addEventListener("change", (newValue) => {
+    var stored = document.getElementById("nativeIndex");
+    nativeLang = data[newValue.target.selectedIndex].value
+    stored.innerHTML = nativeLang;
+  });
+  targetList.addEventListener("change", (newValue) => {
+    var stored = document.getElementById("targetIndex");
+    targetLang = data[newValue.target.selectedIndex].value
+    stored.innerHTML = targetLang;
+  });
+  parent.appendChild(nativeList);
+  parent.appendChild(targetList);
+
+  //Create and append the options
+  for (var i = 0; i < data.length; i++) {
+    var option = document.createElement("option");
+    option.value = data[i].value;
+    option.text = data[i].text;
+    nativeList.appendChild(option);
+  }
+  for (var i = 0; i < data.length; i++) {
+    var option = document.createElement("option");
+    option.value = data[i].value;
+    option.text = data[i].text;
+    targetList.appendChild(option);
+  }
+  /*return (
     '<li class="video"> \
         <a class="play-button" href="' +
     videoData.url +
     '" target="_blank"></a> \
-        <div class="title" title="' +
-    videoData.fileName +
-    '">' +
-    '<select class="js-example-basic-single js-states form-control" id="id_label_single"> \
-      <optgroup label="Group Name"> \
-        <option>Nested option</option> \
-      </optgroup> \
-    </select>'
-     +
-    videoData.fileName +
+        <div class="title" title="' + videoData.fileName + '">'
+    +
+    '<div id="nativeIndex">' + nativeList.selectedIndex + '</div>'
+    +
+    '<div id="targetIndex">' + targetList.selectedIndex + '</div>'
+    +
     '</div> \
         <a class="download-button" href="' +
     videoData.url +
@@ -59,24 +93,24 @@ vd.createDownloadSection = function(videoData) {
     Math.floor((videoData.size * 100) / 1024 / 1024) / 100 +
     ' MB</a>\
         <div class="sep"></div>\
-        </li>';
+        </li>');
 
   // TODO: have a bunch of buttons -- their onclick events would make API call
   // which would retrieve subtitles and then inject them into the video
   // element.
-  var listItem = document.createElement("li");
-  var element = document.createElement("button");
-  element.classList.add("translate-button");
-  element.innerText = "Add Translation";
-  listItem.appendChild(element);
-  return listItem;
+  */
+  var butt = document.createElement("button");
+  butt.classList.add("translate-button");
+  butt.innerText = "Add Translation";
+  parent.appendChild(butt);
+  return;
 };
 
-$(document).ready(function() {
+$(document).ready(function () {
   var videoList = $("#video-list");
-  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     console.log(tabs);
-    vd.sendMessage({ message: "get-video-links", tabId: tabs[0].id }, function(
+    vd.sendMessage({ message: "get-video-links", tabId: tabs[0].id }, function (
       tabsData
     ) {
       console.log(tabsData);
@@ -99,6 +133,7 @@ $(document).ready(function() {
       var smallest = null
       var smallestSize = Math.min()
       videoLinks.forEach(video => {
+        chrome.extension.getBackgroundPage().console.log(video.url);
         if (Number(video.size) < smallestSize) {
           smallest = video;
           smallestSize = Number(video.size);
@@ -107,16 +142,17 @@ $(document).ready(function() {
       videoList.append(vd.createDownloadSection(smallest));
     });
   });
-  $("body").on("click", ".translate-button", function(e) {
+  $("body").on("click", ".translate-button", function (e) {
     console.log("translate button clicked");
     e.preventDefault();
-    var subtitles = TEST_SUBS;
-    // TODO: MAKE API CALL
-    // $('#select').attr (?)
-    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        message: "send_subtitles",
-        subtitles: TEST_SUBS
+    //var subtitles = TEST_SUBS;
+    var finalurl = `${baseURL}\?native=${nativeLang}&target=${targetLang}&url=${url}`
+    fetch(finalurl).then((response) => {
+      response.json().then((resp) => {
+        chrome.extension.getBackgroundPage().console.log(resp);
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          chrome.tabs.sendMessage(tabs[0].id, {message: "send_subtitles", subtitles: resp});
+        });
       });
     });
   });
