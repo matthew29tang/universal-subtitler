@@ -40,6 +40,10 @@ var split = (outfile, res, tscript) => {
   ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
     var sampleRate = null;
     var duration = null;
+    if (metadata.streams.length == 0) {
+      res.send({code: "error"});
+      return null;
+    }
     metadata.streams.forEach(function (stream) {
       if (stream.codec_type === "audio") {
         sampleRate = stream.sample_rate;

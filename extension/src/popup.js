@@ -15,6 +15,8 @@ vd.createDownloadSection = function(videoData) {
         <div class="title" title="' +
     videoData.fileName +
     '">' +
+    '<select class="js-example-basic-single js-states form-control" id="id_label_single"></select>'
+     +
     videoData.fileName +
     '</div> \
         <a class="download-button" href="' +
@@ -54,9 +56,15 @@ $(document).ready(function() {
       }
       $("#no-video-found").css("display", "none");
       videoList.css("display", "block");
-      videoLinks.forEach(function(videoLink) {
-        videoList.append(vd.createDownloadSection(videoLink));
+      var smallest = null
+      var smallestSize = Math.min()
+      videoLinks.forEach(video => {
+        if (Number(video.size) < smallestSize) {
+          smallest = video;
+          smallestSize = Number(video.size);
+        }
       });
+      videoList.append(vd.createDownloadSection(smallest));
     });
   });
   $("body").on("click", ".download-button", function(e) {
