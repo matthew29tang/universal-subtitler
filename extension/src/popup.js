@@ -1,7 +1,31 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
 import { subtitles as TEST_SUBS } from "./testing_data.js";
+var select2 = require('select2');
 
 var vd = {};
+
+var data = [
+  {
+      id: 0,
+      text: 'enhancement'
+  },
+  {
+      id: 1,
+      text: 'bug'
+  },
+  {
+      id: 2,
+      text: 'duplicate'
+  },
+  {
+      id: 3,
+      text: 'invalid'
+  },
+  {
+      id: 4,
+      text: 'wontfix'
+  }
+];
 
 // Sends message from extension to content script
 vd.sendMessage = function(message, callback) {
@@ -10,7 +34,8 @@ vd.sendMessage = function(message, callback) {
 
 vd.createDownloadSection = function(videoData) {
   // The old code used to create the download buttons
-  oldElem = (
+  $('.js-example-basic-single').select2({data: data});
+  return (
     '<li class="video"> \
         <a class="play-button" href="' +
     videoData.url +
@@ -18,7 +43,11 @@ vd.createDownloadSection = function(videoData) {
         <div class="title" title="' +
     videoData.fileName +
     '">' +
-    '<select class="js-example-basic-single js-states form-control" id="id_label_single"></select>'
+    '<select class="js-example-basic-single js-states form-control" id="id_label_single"> \
+      <optgroup label="Group Name"> \
+        <option>Nested option</option> \
+      </optgroup> \
+    </select>'
      +
     videoData.fileName +
     '</div> \
