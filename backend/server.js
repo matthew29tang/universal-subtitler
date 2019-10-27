@@ -11,26 +11,31 @@ var app = express();
 app.use(cors());
 console.log("Starting up server...");
 
+const encoding = "FLAC";
+const languageCode = "es";
 const splitLen = 30;
-const url = "https://gcs-vimeo.akamaized.net/exp=1572138211~acl=%2A%2F585965178.mp4%2A~hmac=f3dbe3981b8ab8f5a681ff7efee9e844f62ee1de34f747d0d204fb5f4a7f7e85/vimeo-prod-skyfire-std-us/01/908/7/179543978/585965178.mp4";
+var numSplits = 0;
+const url = "https://gcs-vimeo.akamaized.net/exp=1572150338~acl=%2A%2F558285842.mp4%2A~hmac=5c4be176f9dd2c372b965ac17b458236d7e62a7b57dfed3bd6c5cbe027726626/vimeo-prod-skyfire-std-us/01/4587/6/172935238/558285842.mp4";
 
-var download = (url) => {
+var download = (url, res, tscript) => {
   const file = fs.createWriteStream("raw.mp4");
   const request = https.get(url, function (response) { response.pipe(file) });
-  file.on('finish', () => split("raw.mp4"));
+  file.on('finish', () => split("raw.mp4", res, tscript));
 }
 
-var convert = (input, sampleRate) => {
+var convert = (input, sampleRate, res, tscript) => {
   ffmpeg(input).toFormat('flac').on('error', (err) => {
     console.log('An error occurred: ' + err.message);
   }).on('progress', (progress) => {
     console.log('Processing: ' + progress.targetSize + ' KB converted');
   }).on('end', () => {
     console.log('Conversion finished!');
-  }).save(input.slice(0, -3) + "flac")
+    tscript.num += 1;
+    const result = recognize("./" + input.slice(0, -3) + "flac", encoding, sampleRate, languageCode, res, tscript);
+  }).addOption('-ac', 1).save(input.slice(0, -3) + "flac")
 }
 
-var split = (outfile) => {
+var split = (outfile, res, tscript) => {
   ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
     var sampleRate = null;
     var duration = null;
@@ -48,7 +53,7 @@ var split = (outfile) => {
       splitter = (i) => {
         ffmpeg(outfile).seekInput(splitLen * i).duration(splitLen).on('end', () => {
           console.log("Splitted", i);
-          convert(`split${i}.mp4`, sampleRate);
+          convert(`split${i}.mp4`, sampleRate, res, tscript);
         }).save(`split${i}.mp4`);
       }
       splitter(i);
@@ -60,7 +65,7 @@ var split = (outfile) => {
 
 
 // ---------- < BEGIN GOOGLE CLOUD APIS > --------
-var recognize = (filename, encoding, sampleRateHertz, languageCode, res) => {
+var recognize = (filename, encoding, sampleRateHertz, languageCode, res, tscript) => {
   const client = new speech.SpeechClient();
   const config = {
     enableWordTimeOffsets: true,
@@ -77,10 +82,10 @@ var recognize = (filename, encoding, sampleRateHertz, languageCode, res) => {
     audio: audio,
   };
   console.log("Performing recognition...");
-  return client.recognize(request).then(raw => transcribe(raw, res));
+  return client.recognize(request).then(raw => transcribe(raw, res, tscript));
 }
 
-var transcribe = (raw, res) => {
+var transcribe = (raw, res, tscript) => {
   const [response] = raw
   response.results.forEach(raw => {
     result = []
@@ -101,8 +106,11 @@ var transcribe = (raw, res) => {
         word.text = translated[0];
         count += 1
         if (count === result.length) {
+          tscript.data.push(result);
           console.log(result);
-          res.send(result);
+          if (tscript.num == numSplits) {
+            res.send(result);
+          }
         }
       });
     });
@@ -130,11 +138,11 @@ var _condense = (result) => {
 }
 
 app.get('/', function (req, res) {
-  const filename = './split0.flac';
-  const encoding = 'FLAC';
-  const sampleRateHertz = 48000;
-  const languageCode = 'es';
-  const result = recognize(filename, encoding, sampleRateHertz, languageCode, res);
+  var tscript = {data: [], num: 0};
+  download(url, res, tscript);
+  // const filename = './split0.flac';
+  // const sampleRateHertz = 48000;
+  // const result = recognize(filename, encoding, sampleRateHertz, languageCode, res);
 });
 
 
