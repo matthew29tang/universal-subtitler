@@ -1,5 +1,6 @@
 # Universal Subtitler
 Created by Matthew Tang, Robert Quitt, Christianna Xu, Emma Yokota
+
 CalHacks - 3rd Place for Best Use of Google Cloud API Prize
 
 ## Inspiration
