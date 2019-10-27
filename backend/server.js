@@ -31,7 +31,6 @@ var convert = (input, sampleRate, res, i, tscript) => {
     console.log('Processing: ' + progress.targetSize + ' KB converted');
   }).on('end', () => {
     console.log('Conversion finished!');
-    tscript.num += 1;
     const fname = "./" + input.slice(0, -3) + "flac";
     const result = recognize(fname, sampleRate, languageCode, res, i, tscript);
   }).addOption('-ac', 1).save(input.slice(0, -3) + "flac")
@@ -106,6 +105,7 @@ var transcribe = (raw, res, i, tscript) => {
         count += 1
         if (count === result.length) {
           tscript.data[i] = result;
+          tscript.num += 1;
           console.log(result);
           if (tscript.num == numSplits) {
             var combined = [].concat.apply([], tscript.data)
