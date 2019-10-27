@@ -1,3 +1,5 @@
+import { vd } from './vdp/background.js';
+
 chrome.browserAction.onClicked.addListener(function(tab) {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     var activeTab = tabs[0];
@@ -10,9 +12,8 @@ chrome.runtime.onMessage.addListener(
     if( request.message === "open_new_tab" ) {
       chrome.tabs.create({"url": request.url});
     }
-    if ( request.action === "getSource" ) {
-      console.log(request.source);
-      chrome.tabs.create({"url": request.source});
+    if ( request.action === "add-video-links" ) {
+      console.log(request.videoLinks);
     }
   }
 );

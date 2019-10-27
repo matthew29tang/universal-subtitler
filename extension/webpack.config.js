@@ -4,7 +4,8 @@ var path = require("path");
 module.exports = {
   entry: {
     content: "./src/content.js",
-    background: "./src/background.js"
+    background: "./src/background.js",
+    popup: "./src/popup.js"
   },
   output: {
     filename: "[name].js",
