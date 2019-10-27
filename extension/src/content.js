@@ -11,4 +11,12 @@ chrome.runtime.onMessage.addListener(
     }
   }
 );
+
+chrome.runtime.onMessage.addListener(
+  function(request, sender, sendResponse) {
+    if ( request.message === "send_subtitles" ) {
+      console.log(request.subtitles)
+    }
+  }
+)
 // vim:et sw=2
