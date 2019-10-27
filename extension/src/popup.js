@@ -1,6 +1,4 @@
 import $ from "./vdp/jquery-3.1.1.min.js";
-import { subtitles as TEST_SUBS } from "./testing_data.js";
-var select2 = require('select2');
 var targetLang = 'en';
 var nativeLang = 'en';
 var url = null;
@@ -49,12 +47,12 @@ vd.createDownloadSection = function (videoData) {
   nativeList.addEventListener("change", (newValue) => {
     var stored = document.getElementById("nativeIndex");
     nativeLang = data[newValue.target.selectedIndex].value
-    stored.innerHTML = nativeLang;
+    //stored.innerHTML = nativeLang;
   });
   targetList.addEventListener("change", (newValue) => {
     var stored = document.getElementById("targetIndex");
     targetLang = data[newValue.target.selectedIndex].value
-    stored.innerHTML = targetLang;
+    //stored.innerHTML = targetLang;
   });
   parent.appendChild(nativeList);
   parent.appendChild(targetList);
@@ -72,33 +70,6 @@ vd.createDownloadSection = function (videoData) {
     option.text = data[i].text;
     targetList.appendChild(option);
   }
-  /*return (
-    '<li class="video"> \
-        <a class="play-button" href="' +
-    videoData.url +
-    '" target="_blank"></a> \
-        <div class="title" title="' + videoData.fileName + '">'
-    +
-    '<div id="nativeIndex">' + nativeList.selectedIndex + '</div>'
-    +
-    '<div id="targetIndex">' + targetList.selectedIndex + '</div>'
-    +
-    '</div> \
-        <a class="download-button" href="' +
-    videoData.url +
-    '" data-file-name="' +
-    videoData.fileName +
-    videoData.extension +
-    '">Download - ' +
-    Math.floor((videoData.size * 100) / 1024 / 1024) / 100 +
-    ' MB</a>\
-        <div class="sep"></div>\
-        </li>');
-
-  // TODO: have a bunch of buttons -- their onclick events would make API call
-  // which would retrieve subtitles and then inject them into the video
-  // element.
-  */
   var butt = document.createElement("button");
   butt.classList.add("translate-button");
   butt.innerText = "Add Translation";
@@ -150,9 +121,9 @@ $(document).ready(function () {
     parent.appendChild(para);
     console.log("translate button clicked");
     e.preventDefault();
-    //var subtitles = TEST_SUBS;
+
     var finalurl = `${baseURL}\?native=${nativeLang}&target=${targetLang}&url=${url}`
-    chrome.extension.getBackgroundPage().console.log("Fetching...");
+    chrome.extension.getBackgroundPage().console.log("Fetching...", finalurl);
     fetch(finalurl).then((response) => {
       response.json().then((resp) => {
         chrome.extension.getBackgroundPage().console.log(resp);

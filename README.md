@@ -1,4 +1,7 @@
 # Universal Subtitler
+Created by Matthew Tang, Robert Quitt, Christianna Xu, Emma Yokota
+CalHacks - 3rd Place for Best Use of Google Cloud API Prize
+
 ## Inspiration
 Our team member enjoys watching Kdramas but has difficulty finding subtitles. In general, there is a lack of consistent video translation across online video platforms. Videos are minimally captioned/subtitled and beyond YouTube, it is largely nonexistent.
 

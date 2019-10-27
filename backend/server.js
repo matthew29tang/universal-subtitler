@@ -14,9 +14,9 @@ console.log("Starting up server...");
 const splitLen = 30;
 var numSplits = 0;
 
-var languageCode = "es";
+var languageCode = "en";
 var targetLanguage = "en";
-var url = "https://gcs-vimeo.akamaized.net/exp=1572154372~acl=%2A%2F558285842.mp4%2A~hmac=ac6cefde06c57507c2ad7c391be6aca980980ae88d20c86d0d2c2ca2d00475c2/vimeo-prod-skyfire-std-us/01/4587/6/172935238/558285842.mp4";
+var url = "";
 
 var download = (url, res, tscript) => {
   const file = fs.createWriteStream("raw.mp4");
@@ -40,7 +40,7 @@ var split = (outfile, res, tscript) => {
   ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
     var sampleRate = null;
     var duration = null;
-    if (metadata.streams.length == 0) {
+    if (metadata === null || metadata.streams.length === 0) {
       res.send({code: "error"});
       return null;
     }
@@ -155,7 +155,6 @@ app.get('/', function (req, res) {
   url = req.query.url
   var tscript = { data: [], num: 0 };
   download(url, res, tscript);
-
 });
 
 
