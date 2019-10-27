@@ -138,7 +138,7 @@ var _condense = (result, i) => {
         start: time + i * 30,
         end: time + 5 + i * 30,
       })
-      string = "";
+      string = word.raw;
       time += 5;
     }
   }

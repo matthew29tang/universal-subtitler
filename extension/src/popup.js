@@ -86,19 +86,17 @@ vd.createDownloadSection = function (videoData) {
     Math.floor((videoData.size * 100) / 1024 / 1024) / 100 +
     ' MB</a>\
         <div class="sep"></div>\
-        </li>'
-
-  );
+        </li>';
 
   // TODO: have a bunch of buttons -- their onclick events would make API call
   // which would retrieve subtitles and then inject them into the video
   // element.
-
-  var onclick = function () {
-    /* TODO: MAKE API CALL */
-    subtitles = TEST_SUBS;
-    vd.sendMessage({ message: "send_subtitles", subtitles: TEST_SUBS });
-  };
+  var listItem = document.createElement("li");
+  var element = document.createElement("button");
+  element.classList.add("translate-button");
+  element.innerText = "Add Translation";
+  listItem.appendChild(element);
+  return listItem;
 };
 
 $(document).ready(function () {
@@ -109,6 +107,9 @@ $(document).ready(function () {
       tabsData
     ) {
       console.log(tabsData);
+      if (!tabsData) {
+        return;
+      }
       if (tabsData.url.indexOf("youtube.com") != -1) {
         vd.sendMessage({ message: "show-youtube-warning" });
         return;
@@ -133,12 +134,17 @@ $(document).ready(function () {
       videoList.append(vd.createDownloadSection(smallest));
     });
   });
-  $("body").on("click", ".download-button", function (e) {
+  $("body").on("click", ".translate-button", function(e) {
+    console.log("translate button clicked");
     e.preventDefault();
-    vd.sendMessage({
-      message: "download-video-link",
-      url: $(this).attr("href"),
-      fileName: $(this).attr("data-file-name")
+    var subtitles = TEST_SUBS;
+    // TODO: MAKE API CALL
+    // $('#select').attr (?)
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        message: "send_subtitles",
+        subtitles: TEST_SUBS
+      });
     });
   });
 });
