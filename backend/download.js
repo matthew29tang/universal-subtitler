@@ -24,7 +24,6 @@ var convert = (input) => {
   }).addOption('-ac', 1).save(input.slice(0, -3) + "flac")
 }
 
-
 var split = (outfile) => {
   ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
     var sampleRate = null;
