@@ -118,5 +118,5 @@ tags
 
 # Gcloud credentials
 /backend/subgen-credentials.json
-
+/backend/subgen.pem
 # End of https://www.gitignore.io/api/vim,node

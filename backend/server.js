@@ -1,5 +1,5 @@
-var port = process.env.PORT || 4000;  
-var express = require('express'); 
+var port = process.env.PORT || 4000;
+var express = require('express');
 var cors = require('cors');
 const https = require('https');
 const fs = require('fs');
@@ -11,11 +11,12 @@ var app = express();
 app.use(cors());
 console.log("Starting up server...");
 
-const encoding = "FLAC";
-const languageCode = "es";
 const splitLen = 30;
 var numSplits = 0;
-const url = "https://gcs-vimeo.akamaized.net/exp=1572150338~acl=%2A%2F558285842.mp4%2A~hmac=5c4be176f9dd2c372b965ac17b458236d7e62a7b57dfed3bd6c5cbe027726626/vimeo-prod-skyfire-std-us/01/4587/6/172935238/558285842.mp4";
+
+var languageCode = "es";
+var targetLanguage = "en";
+var url = "https://gcs-vimeo.akamaized.net/exp=1572154372~acl=%2A%2F558285842.mp4%2A~hmac=ac6cefde06c57507c2ad7c391be6aca980980ae88d20c86d0d2c2ca2d00475c2/vimeo-prod-skyfire-std-us/01/4587/6/172935238/558285842.mp4";
 
 var download = (url, res, tscript) => {
   const file = fs.createWriteStream("raw.mp4");
@@ -23,7 +24,7 @@ var download = (url, res, tscript) => {
   file.on('finish', () => split("raw.mp4", res, tscript));
 }
 
-var convert = (input, sampleRate, res, tscript) => {
+var convert = (input, sampleRate, res, i, tscript) => {
   ffmpeg(input).toFormat('flac').on('error', (err) => {
     console.log('An error occurred: ' + err.message);
   }).on('progress', (progress) => {
@@ -31,7 +32,8 @@ var convert = (input, sampleRate, res, tscript) => {
   }).on('end', () => {
     console.log('Conversion finished!');
     tscript.num += 1;
-    const result = recognize("./" + input.slice(0, -3) + "flac", encoding, sampleRate, languageCode, res, tscript);
+    const fname = "./" + input.slice(0, -3) + "flac";
+    const result = recognize(fname, sampleRate, languageCode, res, i, tscript);
   }).addOption('-ac', 1).save(input.slice(0, -3) + "flac")
 }
 
@@ -53,7 +55,7 @@ var split = (outfile, res, tscript) => {
       splitter = (i) => {
         ffmpeg(outfile).seekInput(splitLen * i).duration(splitLen).on('end', () => {
           console.log("Splitted", i);
-          convert(`split${i}.mp4`, sampleRate, res, tscript);
+          convert(`split${i}.mp4`, sampleRate, res, i, tscript);
         }).save(`split${i}.mp4`);
       }
       splitter(i);
@@ -61,15 +63,12 @@ var split = (outfile, res, tscript) => {
   });
 }
 
-//download(url)
-
-
 // ---------- < BEGIN GOOGLE CLOUD APIS > --------
-var recognize = (filename, encoding, sampleRateHertz, languageCode, res, tscript) => {
+var recognize = (filename, sampleRateHertz, languageCode, res, i, tscript) => {
   const client = new speech.SpeechClient();
   const config = {
     enableWordTimeOffsets: true,
-    encoding: encoding,
+    encoding: "FLAC",
     sampleRateHertz: sampleRateHertz,
     languageCode: languageCode,
     enableAutomaticPunctuation: true,
@@ -82,10 +81,10 @@ var recognize = (filename, encoding, sampleRateHertz, languageCode, res, tscript
     audio: audio,
   };
   console.log("Performing recognition...");
-  return client.recognize(request).then(raw => transcribe(raw, res, tscript));
+  return client.recognize(request).then(raw => transcribe(raw, res, i, tscript));
 }
 
-var transcribe = (raw, res, tscript) => {
+var transcribe = (raw, res, i, tscript) => {
   const [response] = raw
   response.results.forEach(raw => {
     result = []
@@ -100,16 +99,17 @@ var transcribe = (raw, res, tscript) => {
       })
     });
     var count = 0;
-    result = _condense(result);
+    result = _condense(result, i);
     result.forEach(word => {
-      translate.translate(word.raw, 'en').then(translated => {
+      translate.translate(word.raw, targetLanguage).then(translated => {
         word.text = translated[0];
         count += 1
         if (count === result.length) {
-          tscript.data.push(result);
+          tscript.data[i] = result;
           console.log(result);
           if (tscript.num == numSplits) {
-            res.send(result);
+            var combined = [].concat.apply([], tscript.data)
+            res.send(combined);
           }
         }
       });
@@ -117,32 +117,41 @@ var transcribe = (raw, res, tscript) => {
   });
 }
 
-var _condense = (result) => {
+var _condense = (result, i) => {
   var array = [];
   var time = 0;
   var string = "";
-  result.forEach(word => {
+  for (var j = 0; j < result.length; j++) {
+    word = result[j]
     if (word.start < time + 5) {
-      string = string + " " + word.raw;
-    } else {
+      if (string.length != 0)
+        string += " "
+      string += word.raw;
+    }
+    if (word.start >= time + 5 || j == result.length - 1) {
       array.push({
         raw: string,
-        start: time,
-        end: time + 5
+        start: time + i * 30,
+        end: time + 5 + i * 30,
       })
       string = "";
       time += 5;
     }
-  })
+  }
   return array;
 }
 
 app.get('/', function (req, res) {
-  var tscript = {data: [], num: 0};
+  if (Object.keys(req.query).length !== 3) {
+    res.send({status: "Invalid query"});
+    return
+  }
+  languageCode = req.query.native
+  targetLanguage = req.query.target
+  url = req.query.url
+  var tscript = { data: [], num: 0 };
   download(url, res, tscript);
-  // const filename = './split0.flac';
-  // const sampleRateHertz = 48000;
-  // const result = recognize(filename, encoding, sampleRateHertz, languageCode, res);
+
 });
 
 
