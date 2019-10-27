@@ -1,10 +1,9 @@
 const https = require('https');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
-const outfile = './output.flac'
 const splitLen = 30;
 
-const url = "https://gcs-vimeo.akamaized.net/exp=1572132846~acl=%2A%2F585965178.mp4%2A~hmac=37b25f605c536cae15628132d87a5b31d2e16bd20c38767bb09cc65eef664929/vimeo-prod-skyfire-std-us/01/908/7/179543978/585965178.mp4";
+const url = "https://gcs-vimeo.akamaized.net/exp=1572139697~acl=%2A%2F558285845.mp4%2A~hmac=2e5f39f5455b573afb1b0ad4b5fabf3b35d2ea642677a61ac83c0064b6ba364b/vimeo-prod-skyfire-std-us/01/4587/6/172935238/558285845.mp4";
 
 var download = (url) => {
   const file = fs.createWriteStream("raw.mp4");
@@ -22,7 +21,7 @@ var convert = (input) => {
     console.log('Processing: ' + progress.targetSize + ' KB converted');
   }).on('end', () => {
     console.log('Conversion finished!');
-  }).save(input.slice(0, -3) + "flac")
+  }).addOption('-ac', 1).save(input.slice(0, -3) + "flac")
 }
 
 
@@ -49,9 +48,7 @@ var split = (outfile) => {
       }
       splitter(i);
     }
-    console.log("Split finished")
   });
-
 }
 
 download(url)
