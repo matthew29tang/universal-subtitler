@@ -33,49 +33,48 @@ var download = (url, res, tscript) => {
   file.on("finish", () => split("raw.mp4", res, tscript));
 };
 
-var getDownloadStream = (url, res, tscript) => {
+var getDownloadStream = (url) => {
   var outFile = fs.createWriteStream(__dirname + "/poop.mp4")
-  // var request = https.get(url, res => {
-    // res.on('data', d => {
-
-    // })
-  // });
-  var probePassThrough = stream.PassThrough();
   var transcodePassThrough = stream.PassThrough();
+  transcodePassThrough.on('data', data => {
+    console.log('tc data passed', data.length);
+  });
+  transcodePassThrough.on('end', () => {
+    console.log("tc done");
+  });
   http.get(url, res=>{
-    res.pipe(probePassThrough);
-    res.pipe(transcodePassThrough);
+    var duration = null;
+    var proc = new ffmpeg(res)
+      .outputOptions(["-movflags isml+frag_keyframe"])
+      .toFormat("mp4")
+      .withAudioCodec("copy")
+      .on("error", function(err, stdout, stderr) {
+        console.log("an error happened: " + err.message);
+        console.log("ffmpeg stdout: " + stdout);
+        console.log("ffmpeg stderr: " + stderr);
+      })
+      .on("end", function() {
+        console.log("Processing finished !");
+      })
+      .on("codecData", function(data) {
+        console.dir(data);
+        console.log("duration", data.duration);
+        duration = data.duration;
+      })
+      .on("progress", function(progress) {
+        // console.log(progress);
+        console.log("Processing: " + progress.timemark + "/" + duration);
+      })
+      .pipe(
+        outFile,
+        { end: true }
+      );
   });
-
-  var poop = ffmpeg.ffprobe(probePassThrough, function(err, metadata){
-    console.dir(metadata);
-  });
-  var proc = new ffmpeg(transcodePassThrough)
-    .outputOptions(["-movflags isml+frag_keyframe"])
-    .toFormat("mp4")
-    .withAudioCodec("copy")
-    .on("error", function(err, stdout, stderr) {
-      console.log("an error happened: " + err.message);
-      console.log("ffmpeg stdout: " + stdout);
-      console.log("ffmpeg stderr: " + stderr);
-    })
-    .on("end", function() {
-      console.log("Processing finished !");
-    })
-    .on("progress", function(progress) {
-      // console.log("Processing: " + progress.percent + "% done");
-      console.log(progress);
-      console.log("Processing: " + progress + "% done");
-    })
-    .pipe(
-      outFile,
-      { end: true }
-    );
-  console.log("done")
+  // fs.createReadStream(__dirname + "/test.mp4").pipe(transcodePassThrough);
 };
 
 app.get("/test/", function(req, res) {
-  getDownloadStream(url, res, null);
+  getDownloadStream(url);
 });
 
 app.get("/test.mp4", function(req, res) {
