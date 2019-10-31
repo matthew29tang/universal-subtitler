@@ -33,53 +33,45 @@ var download = (url, res, tscript) => {
   file.on("finish", () => split("raw.mp4", res, tscript));
 };
 
-var getDownloadStream = (url) => {
-  var outFile = fs.createWriteStream(__dirname + "/poop.mp4")
-  var transcodePassThrough = stream.PassThrough();
-  transcodePassThrough.on('data', data => {
-    console.log('tc data passed', data.length);
-  });
-  transcodePassThrough.on('end', () => {
-    console.log("tc done");
-  });
-  http.get(url, res=>{
+var timemarkToSeconds = (timemark) => {
+  var split = timemark.split(":").map(d => parseFloat(d));
+  return split[0] * 3600 + split[1] * 60 + split[2];
+};
+
+var getDownloadStream = (req, res, url) => {
+  var outFile = fs.createWriteStream(__dirname + "/poop.flac");
+  http.get(url, res => {
     var duration = null;
     var proc = new ffmpeg(res)
-      .outputOptions(["-movflags isml+frag_keyframe"])
-      .toFormat("mp4")
-      .withAudioCodec("copy")
+      .toFormat("flac")
+      .on("codecData", function(data) {
+         duration = timemarkToSeconds(data.duration);
+      })
+      .on("progress", function(progress) {
+        console.log("Processing: " + timemarkToSeconds(progress.timemark) / duration);
+      })
+      .on("end", function() {
+        console.log("Processing: done");
+      })
       .on("error", function(err, stdout, stderr) {
         console.log("an error happened: " + err.message);
         console.log("ffmpeg stdout: " + stdout);
         console.log("ffmpeg stderr: " + stderr);
-      })
-      .on("end", function() {
-        console.log("Processing finished !");
-      })
-      .on("codecData", function(data) {
-        console.dir(data);
-        console.log("duration", data.duration);
-        duration = data.duration;
-      })
-      .on("progress", function(progress) {
-        // console.log(progress);
-        console.log("Processing: " + progress.timemark + "/" + duration);
       })
       .pipe(
         outFile,
         { end: true }
       );
   });
-  // fs.createReadStream(__dirname + "/test.mp4").pipe(transcodePassThrough);
 };
 
 app.get("/test/", function(req, res) {
-  getDownloadStream(url);
+  getDownloadStream(req, res, url);
 });
 
 app.get("/test.mp4", function(req, res) {
   console.log("send test.mp4");
-  fs.createReadStream(__dirname+"/test.mp4").pipe(res);
+  fs.createReadStream(__dirname + "/test.mp4").pipe(res);
 });
 
 var convert = (input, sampleRate, res, i, tscript) => {
