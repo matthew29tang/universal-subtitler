@@ -33,22 +33,45 @@ var download = (url, res, tscript) => {
   file.on("finish", () => split("raw.mp4", res, tscript));
 };
 
-var timemarkToSeconds = (timemark) => {
+var timemarkToSeconds = timemark => {
   var split = timemark.split(":").map(d => parseFloat(d));
   return split[0] * 3600 + split[1] * 60 + split[2];
 };
 
 var getDownloadStream = (req, res, url) => {
   var outFile = fs.createWriteStream(__dirname + "/poop.flac");
+  var tcpt = new stream.PassThrough({
+    writableHighWaterMark: 1024 * 1024,
+    readableHighWaterMark: 1024 * 1024
+  });
+  tcpt.cork();
   http.get(url, res => {
     var duration = null;
+    res.pipe(tcpt);
     var proc = new ffmpeg(res)
       .toFormat("flac")
       .on("codecData", function(data) {
-         duration = timemarkToSeconds(data.duration);
+        console.log("codecData");
+        duration = timemarkToSeconds(data.duration);
+        numSplits = Math.floor(duration / splitLen) + 1;
+        for (var i = 0; i < numSplits; i++) {
+          (i => {
+            ffmpeg(tcpt)
+              .toFormat("flac")
+              .seekInput(splitLen * i)
+              .duration(splitLen)
+              .on("end", () => {
+                console.log("Splitted", i);
+              })
+              .save(`split${i}.mp4`);
+          })(i);
+        }
+        tcpt.uncork();
       })
       .on("progress", function(progress) {
-        console.log("Processing: " + timemarkToSeconds(progress.timemark) / duration);
+        console.log(
+          "Processing: " + timemarkToSeconds(progress.timemark) / duration
+        );
       })
       .on("end", function() {
         console.log("Processing: done");
