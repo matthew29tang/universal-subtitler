@@ -39,7 +39,8 @@ var timemarkToSeconds = timemark => {
 };
 
 var getDownloadStream = (req, res, url) => {
-  var outFile = fs.createWriteStream(__dirname + "/poop.flac");
+  // get -> ffmpeg -> tcpt ---> ffmpeg -> base64 -> transcribe -> translate
+  // var outFile = fs.createWriteStream(__dirname + "/poop.flac");
   var tcpt = new stream.PassThrough({
     writableHighWaterMark: 1024 * 1024,
     readableHighWaterMark: 1024 * 1024
@@ -47,49 +48,109 @@ var getDownloadStream = (req, res, url) => {
   tcpt.cork();
   http.get(url, res => {
     var duration = null;
-    res.pipe(tcpt);
+    var rate = null;
     var proc = new ffmpeg(res)
-      .toFormat("flac")
-      .on("codecData", function(data) {
+      .outputOptions(["-movflags isml+frag_keyframe", "-vn"])
+      .toFormat("mp4")
+      .withAudioCodec("copy")
+      .on("codecData", data => {
         console.log("codecData");
+        rate = parseInt(
+          data.audio_details.filter(s => s.endsWith("Hz"))[0].split(" ")[0]
+        );
         duration = timemarkToSeconds(data.duration);
         numSplits = Math.floor(duration / splitLen) + 1;
+        tcpt.setMaxListeners(numSplits + 4);
         for (var i = 0; i < numSplits; i++) {
           (i => {
+            var pt = new stream.PassThrough();
+            var chunks = [];
+            pt.on("data", d => {
+              chunks.push(d);
+            });
+            pt.on("end", () => {
+              var result = Buffer.concat(chunks);
+              var b64audio = result.toString("base64");
+              recognizeStream(b64audio, rate, "en", res, i, null);
+            });
             ffmpeg(tcpt)
               .toFormat("flac")
               .seekInput(splitLen * i)
               .duration(splitLen)
+              .on("progress", progress => {
+                console.log("Progress", i, progress.timemark);
+              })
+              .on("error", (err, stdout, stderr) => {
+                console.log("an error happened: " + err.message);
+                console.log("ffmpeg stdout: " + stdout);
+                console.log("ffmpeg stderr: " + stderr);
+              })
+              .pipe(
+                pt,
+                { end: true }
+              )
               .on("end", () => {
                 console.log("Splitted", i);
-              })
-              .save(`split${i}.mp4`);
+              });
+            pt;
           })(i);
         }
         tcpt.uncork();
       })
-      .on("progress", function(progress) {
+      .on("progress", progress => {
         console.log(
           "Processing: " + timemarkToSeconds(progress.timemark) / duration
         );
       })
-      .on("end", function() {
+      .on("end", () => {
         console.log("Processing: done");
       })
-      .on("error", function(err, stdout, stderr) {
+      .on("error", (err, stdout, stderr) => {
         console.log("an error happened: " + err.message);
         console.log("ffmpeg stdout: " + stdout);
         console.log("ffmpeg stderr: " + stderr);
       })
       .pipe(
-        outFile,
+        tcpt,
         { end: true }
       );
   });
 };
 
+var recognizeStream = (
+  b64audio,
+  sampleRateHertz,
+  languageCode,
+  res,
+  i,
+  tscript
+) => {
+  console.log("recognize", i);
+  const client = new speech.SpeechClient();
+  const config = {
+    enableWordTimeOffsets: true,
+    encoding: "FLAC",
+    sampleRateHertz: sampleRateHertz,
+    languageCode: languageCode,
+    enableAutomaticPunctuation: true
+  };
+  const audio = {
+    content: b64audio
+  };
+  const request = {
+    config: config,
+    audio: audio
+  };
+  client.recognize(request).then(raw => transcribe(raw, res, i, tscript));
+};
+
 app.get("/test/", function(req, res) {
   getDownloadStream(req, res, url);
+});
+
+app.get("/long.mp4", function(req, res) {
+  console.log("send long.mp4");
+  fs.createReadStream(__dirname + "/long.mp4").pipe(res);
 });
 
 app.get("/test.mp4", function(req, res) {
