@@ -8,7 +8,12 @@ const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
 const speech = require("@google-cloud/speech");
 const { Translate } = require("@google-cloud/translate");
-const translate = new Translate({ projectId: "subgen" });
+const keyFilename = __dirname + "/subgen-credentials.json";
+
+const translate = new Translate({
+  projectId: "subgen",
+  keyFilename: keyFilename
+});
 
 var app = express();
 app.use(cors());
@@ -25,201 +30,72 @@ var url =
 
 url = "http://localhost:" + port + "/test.mp4";
 
-var download = (url, res, tscript) => {
-  const file = fs.createWriteStream("raw.mp4");
-  const request = https.get(url, function(response) {
-    response.pipe(file);
-  });
-  file.on("finish", () => split("raw.mp4", res, tscript));
-};
-
 var timemarkToSeconds = timemark => {
   var split = timemark.split(":").map(d => parseFloat(d));
   return split[0] * 3600 + split[1] * 60 + split[2];
 };
 
-var getDownloadStream = (req, res, url) => {
-  // get -> ffmpeg -> tcpt ---> ffmpeg -> base64 -> transcribe -> translate
-  // var outFile = fs.createWriteStream(__dirname + "/poop.flac");
-  var tcpt = new stream.PassThrough({
-    writableHighWaterMark: 1024 * 1024,
-    readableHighWaterMark: 1024 * 1024
-  });
-  tcpt.cork();
-  http.get(url, res => {
-    var duration = null;
-    var rate = null;
-    var proc = new ffmpeg(res)
-      .outputOptions(["-movflags isml+frag_keyframe", "-vn"])
-      .toFormat("mp4")
-      .withAudioCodec("copy")
-      .on("codecData", data => {
-        console.log("codecData");
-        rate = parseInt(
-          data.audio_details.filter(s => s.endsWith("Hz"))[0].split(" ")[0]
-        );
-        duration = timemarkToSeconds(data.duration);
-        numSplits = Math.floor(duration / splitLen) + 1;
-        tcpt.setMaxListeners(numSplits + 4);
-        for (var i = 0; i < numSplits; i++) {
-          (i => {
-            var pt = new stream.PassThrough();
-            var chunks = [];
-            pt.on("data", d => {
-              chunks.push(d);
-            });
-            pt.on("end", () => {
-              var result = Buffer.concat(chunks);
-              var b64audio = result.toString("base64");
-              recognizeStream(b64audio, rate, "en", res, i, null);
-            });
-            ffmpeg(tcpt)
-              .toFormat("flac")
-              .seekInput(splitLen * i)
-              .duration(splitLen)
-              .on("progress", progress => {
-                console.log("Progress", i, progress.timemark);
-              })
-              .on("error", (err, stdout, stderr) => {
-                console.log("an error happened: " + err.message);
-                console.log("ffmpeg stdout: " + stdout);
-                console.log("ffmpeg stderr: " + stderr);
-              })
-              .pipe(
-                pt,
-                { end: true }
-              )
-              .on("end", () => {
-                console.log("Splitted", i);
-              });
-            pt;
-          })(i);
-        }
-        tcpt.uncork();
-      })
-      .on("progress", progress => {
-        console.log(
-          "Processing: " + timemarkToSeconds(progress.timemark) / duration
-        );
-      })
-      .on("end", () => {
-        console.log("Processing: done");
-      })
-      .on("error", (err, stdout, stderr) => {
-        console.log("an error happened: " + err.message);
-        console.log("ffmpeg stdout: " + stdout);
-        console.log("ffmpeg stderr: " + stderr);
-      })
-      .pipe(
-        tcpt,
-        { end: true }
-      );
+var testPipeline = async (req, res, url, languageCode) => {
+  // get -> ffmpeg -> transcribe -> translate
+  http.get(url, async videoStream => {
+    var {audioStream, sampleRateHertz} = await extractAudioStream(videoStream);
+    // audioStream.pipe(fs.createWriteStream("test.flac"));
+    infiniteStream(
+      audioStream,
+      sampleRateHertz,
+      "es",
+      290000
+    )
+    // transcribeStream(audioStream, sampleRateHertz, languageCode);
   });
 };
 
-var recognizeStream = (
-  b64audio,
-  sampleRateHertz,
-  languageCode,
-  res,
-  i,
-  tscript
-) => {
-  console.log("recognize", i);
-  const client = new speech.SpeechClient();
-  const config = {
-    enableWordTimeOffsets: true,
-    encoding: "FLAC",
-    sampleRateHertz: sampleRateHertz,
-    languageCode: languageCode,
-    enableAutomaticPunctuation: true
-  };
-  const audio = {
-    content: b64audio
-  };
-  const request = {
-    config: config,
-    audio: audio
-  };
-  client.recognize(request).then(raw => transcribe(raw, res, i, tscript));
-};
 
-app.get("/test/", function(req, res) {
-  getDownloadStream(req, res, url);
-});
-
-app.get("/long.mp4", function(req, res) {
-  console.log("send long.mp4");
-  fs.createReadStream(__dirname + "/long.mp4").pipe(res);
-});
-
-app.get("/test.mp4", function(req, res) {
-  console.log("send test.mp4");
-  fs.createReadStream(__dirname + "/test.mp4").pipe(res);
-});
-
-var convert = (input, sampleRate, res, i, tscript) => {
-  ffmpeg(input)
+const extractAudioStream = async (input) => {
+  console.log("extractAudio: begin");
+  var audioStream = stream.PassThrough();
+  var duration = null;
+  var sampleRateHertz = null;
+  var proc = new ffmpeg(input)
     .toFormat("flac")
-    .on("error", err => {
-      console.log("An error occurred: " + err.message);
-    })
+    .outputOptions("-ac 1")
     .on("progress", progress => {
-      console.log("Processing: " + progress.targetSize + " KB converted");
+      console.log("extractAudio: Progress: ", progress.timemark);
+    })
+    .on("codecData", data => {
+      console.log("extractAudio: codecData");
+      sampleRateHertz = parseInt(
+        data.audio_details.filter(s => s.endsWith("Hz"))[0].split(" ")[0]
+      );
+      proc.emit("streamReady");
     })
     .on("end", () => {
-      console.log("Conversion finished!");
-      const fname = "./" + input.slice(0, -3) + "flac";
-      const result = recognize(
-        fname,
-        sampleRate,
-        languageCode,
-        res,
-        i,
-        tscript
-      );
+      console.log("extractAudio: done");
     })
-    .addOption("-ac", 1)
-    .save(input.slice(0, -3) + "flac");
-};
-
-var split = (outfile, res, tscript) => {
-  ffmpeg(outfile).ffprobe(outfile, (err, metadata) => {
-    var sampleRate = null;
-    var duration = null;
-    if (metadata.streams.length == 0) {
-      res.send({ code: "error" });
-      return null;
-    }
-    metadata.streams.forEach(function(stream) {
-      if (stream.codec_type === "audio") {
-        sampleRate = stream.sample_rate;
-        duration = stream.duration;
-      }
-    });
-    numSplits = Math.floor(duration / splitLen) + 1;
-    console.log("Sample rate: ", sampleRate);
-    console.log("Duration: ", duration);
-    console.log("Num splits: ", numSplits);
-    for (var i = 0; i < numSplits; i++) {
-      splitter = i => {
-        ffmpeg(outfile)
-          .seekInput(splitLen * i)
-          .duration(splitLen)
-          .on("end", () => {
-            console.log("Splitted", i);
-            convert(`split${i}.mp4`, sampleRate, res, i, tscript);
-          })
-          .save(`split${i}.mp4`);
-      };
-      splitter(i);
-    }
+    .on("error", (err, stdout, stderr) => {
+      console.log("an error happened: " + err.message);
+      console.log("ffmpeg stdout: " + stdout);
+      console.log("ffmpeg stderr: " + stderr);
+    })
+    .pipe(
+      audioStream,
+      { end: true }
+    );
+  return new Promise((resolve, reject) => {
+    proc.once("streamReady", e => {
+      console.log("extractAudio: streamReady");
+      resolve({audioStream, sampleRateHertz});
+    })
   });
 };
 
-// ---------- < BEGIN GOOGLE CLOUD APIS > --------
-var recognize = (filename, sampleRateHertz, languageCode, res, i, tscript) => {
-  const client = new speech.SpeechClient();
+var transcribeStream = (
+  audioStream,
+  sampleRateHertz,
+  languageCode
+) => {
+  console.log("recognizeStream: begin");
+  const speechClient = new speech.v1p1beta1.SpeechClient({ keyFilename });
   const config = {
     enableWordTimeOffsets: true,
     encoding: "FLAC",
@@ -227,18 +103,183 @@ var recognize = (filename, sampleRateHertz, languageCode, res, i, tscript) => {
     languageCode: languageCode,
     enableAutomaticPunctuation: true
   };
-  const audio = {
-    content: fs.readFileSync(filename).toString("base64")
-  };
   const request = {
     config: config,
-    audio: audio
+    interimResults: true
   };
-  console.log("Performing recognition...");
-  return client
-    .recognize(request)
-    .then(raw => transcribe(raw, res, i, tscript));
+  var recognizeStream = speechClient
+    .streamingRecognize(request)
+    .on("data", data => {
+      console.log(
+        `Transcription: ${data.results[0].alternatives[0].transcript}`
+      );
+    })
+    .on("error", err => {
+      if (err.code == 11) {
+        //restartStream()
+      } else {
+        console.error("Speech-to-text Error: " + err);
+      }
+    });
+  audioStream.pipe(recognizeStream);
 };
+
+function infiniteStream(
+  audioStream,
+  sampleRateHertz,
+  languageCode,
+  streamingLimit
+) {
+  const speechClient = new speech.v1p1beta1.SpeechClient({ keyFilename });
+
+  const config = {
+    enableWordTimeOffsets: true,
+    encoding: "FLAC",
+    sampleRateHertz: sampleRateHertz,
+    languageCode: languageCode,
+    enableAutomaticPunctuation: true
+  };
+
+  console.log(config);
+
+  const request = {
+    config,
+    interimResults: true,
+  };
+
+  let recognizeStream = null;
+  let restartCounter = 0;
+  let audioInput = [];
+  let lastAudioInput = [];
+  let resultEndTime = 0;
+  let isFinalEndTime = 0;
+  let finalRequestEndTime = 0;
+  let newStream = true;
+  let bridgingOffset = 0;
+  let lastTranscriptWasFinal = false;
+
+  function startStream() {
+    // Clear current audioInput
+    audioInput = [];
+    // Initiate (Reinitiate) a recognize stream
+    recognizeStream = speechClient
+      .streamingRecognize(request)
+      .on('error', err => {
+        if (err.code === 11) {
+          // restartStream();
+        } else {
+          console.error('API request error ' + err);
+        }
+      })
+      .on('data', speechCallback);
+
+    // Restart stream when streamingLimit expires
+    setTimeout(restartStream, streamingLimit);
+  }
+
+  const speechCallback = stream => {
+    // Convert API result end time from seconds + nanoseconds to milliseconds
+    resultEndTime =
+      stream.results[0].resultEndTime.seconds * 1000 +
+      Math.round(stream.results[0].resultEndTime.nanos / 1000000);
+
+    // Calculate correct time based on offset from audio sent twice
+    const correctedTime =
+      resultEndTime - bridgingOffset + streamingLimit * restartCounter;
+
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+    let stdoutText = '';
+    if (stream.results[0] && stream.results[0].alternatives[0]) {
+      stdoutText =
+        correctedTime + ': ' + stream.results[0].alternatives[0].transcript;
+    }
+
+    if (stream.results[0].isFinal) {
+      process.stdout.write(`${stdoutText}\n`);
+
+      isFinalEndTime = resultEndTime;
+      lastTranscriptWasFinal = true;
+    } else {
+      // Make sure transcript does not exceed console character length
+      if (stdoutText.length > process.stdout.columns) {
+        stdoutText =
+          stdoutText.substring(0, process.stdout.columns - 4) + '...';
+      }
+      process.stdout.write(`${stdoutText}`);
+
+      lastTranscriptWasFinal = false;
+    }
+  };
+
+  const audioInputStreamTransform = new stream.Transform({
+    transform: (chunk, encoding, callback) => {
+      if (newStream && lastAudioInput.length !== 0) {
+        // Approximate math to calculate time of chunks
+        const chunkTime = streamingLimit / lastAudioInput.length;
+        if (chunkTime !== 0) {
+          if (bridgingOffset < 0) {
+            bridgingOffset = 0;
+          }
+          if (bridgingOffset > finalRequestEndTime) {
+            bridgingOffset = finalRequestEndTime;
+          }
+          const chunksFromMS = Math.floor(
+            (finalRequestEndTime - bridgingOffset) / chunkTime
+          );
+          bridgingOffset = Math.floor(
+            (lastAudioInput.length - chunksFromMS) * chunkTime
+          );
+
+          for (let i = chunksFromMS; i < lastAudioInput.length; i++) {
+            recognizeStream.write(lastAudioInput[i]);
+          }
+        }
+        newStream = false;
+      }
+
+      audioInput.push(chunk);
+
+      if (recognizeStream) {
+        recognizeStream.write(chunk);
+      }
+
+      callback();
+    },
+  });
+
+  function restartStream() {
+    if (recognizeStream) {
+      recognizeStream.removeListener('data', speechCallback);
+      recognizeStream = null;
+    }
+    if (resultEndTime > 0) {
+      finalRequestEndTime = isFinalEndTime;
+    }
+    resultEndTime = 0;
+
+    lastAudioInput = [];
+    lastAudioInput = audioInput;
+
+    restartCounter++;
+
+    if (!lastTranscriptWasFinal) {
+      process.stdout.write(`\n`);
+    }
+    process.stdout.write(`INFO: ${streamingLimit * restartCounter}: RESTARTING REQUEST\n`);
+
+    newStream = true;
+
+    startStream();
+  }
+
+  console.log("infiniteStream: starting...");
+  audioStream.pipe(audioInputStreamTransform);
+  startStream();
+}
+
+
+// ---------- < BEGIN GOOGLE CLOUD APIS > --------
 
 var transcribe = (raw, res, i, tscript) => {
   const [response] = raw;
@@ -313,6 +354,24 @@ app.get("/", function(req, res) {
   url = req.query.url;
   var tscript = { data: [], num: 0 };
   download(url, res, tscript);
+});
+
+app.get("/test/", function(req, res) {
+  var tscript = { data: [], num: 0 };
+  languageCode = "es";
+  targetLanguage = "en";
+  // download(http get) -> extract audio (ffmpeg) -> transcribe (speech) -> translate
+  testPipeline(req, res, url, languageCode)
+});
+
+app.get("/long.mp4", function(req, res) {
+  console.log("express: send long.mp4");
+  fs.createReadStream(__dirname + "/long.mp4").pipe(res);
+});
+
+app.get("/test.mp4", function(req, res) {
+  console.log("express: send test.mp4");
+  fs.createReadStream(__dirname + "/test.mp4").pipe(res);
 });
 
 app.listen(port, function() {});
