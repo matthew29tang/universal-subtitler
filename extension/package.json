@@ -4,7 +4,7 @@
   "description": "Chrome extension component of subtitle generator project",
   "private": "true",
   "dependencies": {
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "select2": "^4.0.11"
   },
   "devDependencies": {
