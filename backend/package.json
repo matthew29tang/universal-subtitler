@@ -25,7 +25,7 @@
     "@google-cloud/speech": "^3.3.2",
     "@google-cloud/translate": "^4.2.1",
     "cors": "^2.8.5",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "fluent-ffmpeg": "^2.1.2",
     "mux.js": "^5.5.1"
   }
